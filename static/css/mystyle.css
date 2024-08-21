@@ -1,0 +1,103 @@
+body {
+    background-color: black;
+}
+
+tbody {
+    background-color: black;
+}
+tr {
+    font-size: 50px;
+    background-color: black;
+    color: white;
+    border-bottom: 1px solid grey;
+    border-collapse: collapse;
+}
+
+td {
+    font-size: 25px;
+    background-color: black;
+    text-align: center; 
+}
+
+th {
+    font-size: 25xp;
+    text-align: center;
+    border-bottom: 1px solid grey;
+    border-collapse: collapse;
+}
+
+button {
+    width: 100%;
+    height: 100%;
+    font-size: 60px;
+}
+
+div {
+    font-size: 100px;
+    color: white;
+    text-align: center;
+}
+
+h1 {
+    font-size: 50px;
+    color: white;
+    text-align: center;
+    line-height: 0%;
+}
+
+h2 {
+    font-size: 20px;
+    color: white;
+    text-align: right;
+    line-height: 0%;
+}
+
+h3 {
+    font-size: 25px;
+    color: white;
+    text-align: center;
+}
+
+p {
+    font-size: 25px;
+    color: white;
+    text-align: center;
+}
+
+table {
+    font-size: 50px;
+    table-layout: fixed;
+    padding: 0px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+article {
+  float: left;
+  padding: 20px;
+  width: 50%;
+}
+
+span {
+    font-size: 25px;
+    color: white;
+}
+
+* {
+    box-sizing: border-box;
+  }
+  
+  /* Create two equal columns that floats next to each other */
+  .column {
+    float: none;
+    width: 100%;
+    padding: 10px;
+    overflow: hidden;
+  }
+  
+  /* Clear floats after the columns */
+  .row:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
