@@ -21,8 +21,7 @@ app = Flask(__name__)
 
 def get_credentials():
     """
-    Fetches the user's Google Calendar API credentials, 
-    authorizing the user if necessary and storing the credentials locally.
+    Fetches the user's Google Calendar API credentials.
     """
     home_dir = os.path.expanduser('~')
     credential_dir = os.path.join(home_dir, '.credentials')
@@ -43,7 +42,7 @@ def get_credentials():
 
 def fetch_calendar_ids(service):
     """
-    Fetches the list of calendar IDs from the user's account that are associated with a Gmail address.
+    Fetches the list of calendar IDs.
     """
     calendar_ids = []
     page_token = None
@@ -63,10 +62,9 @@ def fetch_calendar_ids(service):
 
 def fetch_calendar_events(service, calendar_id, start_time):
     """
-    Fetches the upcoming events from a specified calendar starting from the given time.
+    Fetches upcoming events.
     """
     events = []
-    
     try:
         events_result = service.events().list(
             calendarId=calendar_id,
@@ -81,10 +79,23 @@ def fetch_calendar_events(service, calendar_id, start_time):
     
     return events
 
+def calculate_time_difference(event_datetime):
+    """
+    Calculates the time difference between now and the event date.
+    """
+    now = datetime.now()
+    delta = event_datetime - now
+
+    months = delta.days // 30
+    days = delta.days % 30
+    hours = delta.seconds // 3600
+
+    return months, days, hours
+
 @app.route('/')
 def index():
     """
-    Main route for the Flask app. Fetches calendar events and renders them in the template.
+    Main route for the Flask app.
     """
     calendar_data = []
     credentials = get_credentials()
@@ -93,8 +104,9 @@ def index():
 
     calendar_ids = fetch_calendar_ids(service)
     
-    now = datetime.utcnow().isoformat() + 'Z'  # Time in UTC format
+    now = datetime.now().isoformat() + 'Z'
     today_date = datetime.now().date()
+    formatted_today = datetime.now().strftime('%b %d')
 
     for calendar_id in calendar_ids:
         events = fetch_calendar_events(service, calendar_id, now)
@@ -103,37 +115,26 @@ def index():
             summary = event.get('summary', 'No title')
             location = event.get('location', '')
 
-            # Parse start time
             start_iso = event.get('start', {}).get('dateTime') or event.get('start', {}).get('date')
-            if 'T' in start_iso:  # Event has a specific start time
+            if 'T' in start_iso:
                 start_time_obj = datetime.strptime(start_iso[:19], '%Y-%m-%dT%H:%M:%S')
                 start_time = start_time_obj.strftime('%I:%M %p')
-                start_date = start_time_obj.strftime('%b %d')
-                start_day = start_time_obj.strftime('%a')
-            else:  # All day event
+                event_datetime = start_time_obj
+            else:
                 start_time = 'All Day'
-                start_date = datetime.strptime(start_iso, '%Y-%m-%d').strftime('%b %d')
-                start_day = datetime.strptime(start_iso, '%Y-%m-%d').strftime('%a')
+                event_datetime = datetime.strptime(start_iso, '%Y-%m-%d')
 
-            # Days until the event
-            event_date = datetime.strptime(start_iso[:10], '%Y-%m-%d').date()
-
-            # Skip events that have already passed
-            if event_date < today_date:
+            if event_datetime.date() < today_date:
                 continue
 
-            days_until = (event_date - today_date).days
+            months, days, hours = calculate_time_difference(event_datetime)
 
-            if days_until == 0:
-                start_date = 'Today'
-            elif days_until == 1:
-                start_date = 'Tomorrow'
-            elif 1 < days_until < 8:
-                start_date = start_day
-            
-            calendar_data.append([summary, location, start_time, start_date, days_until])
+            calendar_data.append([
+                summary, location, start_time, event_datetime.strftime('%b %d'), 
+                days, months, hours
+            ])
 
-    return render_template('calendar.html', calendar=calendar_data)
+    return render_template('calendar.html', calendar=calendar_data, today=formatted_today)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8014, debug=True)
