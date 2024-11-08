@@ -5,6 +5,7 @@ import httplib2
 import os
 import time
 from datetime import datetime, timedelta
+from calendar import monthrange
 
 import googleapiclient.discovery as discovery
 from oauth2client import client, tools
@@ -80,17 +81,38 @@ def fetch_calendar_events(service, calendar_id, start_time):
     return events
 
 def calculate_time_difference(event_datetime):
-    """
-    Calculates the time difference between now and the event date.
-    """
     now = datetime.now()
     delta = event_datetime - now
 
-    months = delta.days // 30
-    days = delta.days % 30
-    hours = delta.seconds // 3600
+    if delta.total_seconds() <= 0:
+        return "Now", 0, 0, 0  # Special flag indicating the event is happening now
 
-    return months, days, hours
+    months = 0
+    days = delta.days
+    hours = delta.seconds // 3600
+    minutes = (delta.seconds % 3600) // 60
+
+    current_date = now
+    while days >= monthrange(current_date.year, current_date.month)[1]:
+        days_in_month = monthrange(current_date.year, current_date.month)[1]
+        months += 1
+        days -= days_in_month
+        current_date = (current_date.replace(year=current_date.year + 1, month=1) if current_date.month == 12 
+                        else current_date.replace(month=current_date.month + 1))
+
+    return months, days, hours, minutes
+
+def fetch_event_end_time(event):
+    """
+    Fetches the end time of an event.
+    """
+    end_iso = event.get('end', {}).get('dateTime') or event.get('end', {}).get('date')
+    if 'T' in end_iso:
+        end_time_obj = datetime.strptime(end_iso[:19], '%Y-%m-%dT%H:%M:%S')
+    else:
+        end_time_obj = datetime.strptime(end_iso, '%Y-%m-%d')
+    
+    return end_time_obj
 
 @app.route('/')
 def index():
@@ -124,15 +146,30 @@ def index():
                 start_time = 'All Day'
                 event_datetime = datetime.strptime(start_iso, '%Y-%m-%d')
 
+            end_time_obj = fetch_event_end_time(event)  # Get the end time
+
+            # Remove past events
+            if end_time_obj < datetime.now():
+                try:
+                    service.events().delete(calendarId=calendar_id, eventId=event['id']).execute()
+                    print(f"Deleted past event: {summary}")
+                except Exception as e:
+                    print(f"Error deleting event {summary}: {e}")
+                continue  # Skip adding this event to calendar_data
+
             if event_datetime.date() < today_date:
                 continue
 
-            months, days, hours = calculate_time_difference(event_datetime)
+            time_diff = calculate_time_difference(event_datetime)
 
-            calendar_data.append([
-                summary, location, start_time, event_datetime.strftime('%b %d'), 
-                days, months, hours
-            ])
+            if time_diff[0] == "Now":
+                calendar_data.append([summary, location, start_time, event_datetime.strftime('%b %d'), "Now"])
+            else:
+                months, days, hours, minutes = time_diff
+                calendar_data.append([
+                    summary, location, start_time, event_datetime.strftime('%b %d'), 
+                    days, months, hours, minutes
+                ])
 
     return render_template('calendar.html', calendar=calendar_data, today=formatted_today)
 
